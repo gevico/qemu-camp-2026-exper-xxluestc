@@ -166,7 +166,7 @@ static void gpgpu_test_vram_size(void *obj, void *data, QGuestAllocator *alloc)
     vram_hi = qpci_io_readl(pdev, bar0, GPGPU_REG_VRAM_SIZE_HI);
     vram_size = ((uint64_t)vram_hi << 32) | vram_lo; 
     //PCI MMIO 寄存器每次读写是 32 位 (4 字节)，但 VRAM 大小是 64 位值，所以分两个寄存器来存储
-    
+
     g_assert_cmpuint(vram_size, ==, GPGPU_DEFAULT_VRAM_SIZE);
 
     qpci_iounmap(pdev, bar0);
@@ -211,13 +211,14 @@ static void gpgpu_test_dispatch_regs(void *obj, void *data, QGuestAllocator *all
 
     qpci_device_enable(pdev);
     bar0 = qpci_iomap(pdev, 0, NULL);
+    //CUDA:Grid → 多个 Block，Block → 多个 Thread
 
-    /* 写入 Grid 维度 */
+    /* 写入 Grid 维度 */ //GPU 任务中 Block 块 的组织方式 (X×Y×Z)
     qpci_io_writel(pdev, bar0, GPGPU_REG_GRID_DIM_X, 64);
     qpci_io_writel(pdev, bar0, GPGPU_REG_GRID_DIM_Y, 32);
     qpci_io_writel(pdev, bar0, GPGPU_REG_GRID_DIM_Z, 1);
 
-    /* 验证读回 */
+    /* 验证读回 */  //每个 Block 内 线程 的组织方式 (X×Y×Z)
     val = qpci_io_readl(pdev, bar0, GPGPU_REG_GRID_DIM_X);
     g_assert_cmpuint(val, ==, 64);
     val = qpci_io_readl(pdev, bar0, GPGPU_REG_GRID_DIM_Y);

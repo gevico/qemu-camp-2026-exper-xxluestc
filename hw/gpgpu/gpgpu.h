@@ -184,11 +184,13 @@ OBJECT_DECLARE_SIMPLE_TYPE(GPGPUState, GPGPU)
  * 用于记录当前配置的内核执行参数
  */
 typedef struct GPGPUKernelParams {
-    uint64_t kernel_addr;       /* 内核代码在 VRAM 中的地址 */
-    uint64_t kernel_args;       /* 内核参数在 VRAM 中的地址 */
-    uint32_t grid_dim[3];       /* Grid 维度 [X, Y, Z] */
-    uint32_t block_dim[3];      /* Block 维度 [X, Y, Z] */
-    uint32_t shared_mem_size;   /* 每个 Block 的共享内存大小 */
+    uint32_t kernel_addr_lo;    /* 内核代码地址低 32 位 */
+    uint32_t kernel_addr_hi;   /* 内核代码地址高 32 位 */
+    uint32_t kernel_args_lo;   /* 内核参数地址低 32 位 */
+    uint32_t kernel_args_hi;   /* 内核参数地址高 32 位 */
+    uint32_t grid_dim[3];      /* Grid 维度 [X, Y, Z] */
+    uint32_t block_dim[3];     /* Block 维度 [X, Y, Z] */
+    uint32_t shared_mem_size;  /* 每个 Block 的共享内存大小 */
 } GPGPUKernelParams;
 
 /*
@@ -269,6 +271,14 @@ struct GPGPUState {
 
     /*-- 内核分发参数 --*/
     GPGPUKernelParams kernel;       /* 当前内核配置 */
+
+    /*-- Grid/Block 维度寄存器 --*/
+    uint32_t grid_dim_x;
+    uint32_t grid_dim_y;
+    uint32_t grid_dim_z;
+    uint32_t block_dim_x;
+    uint32_t block_dim_y;
+    uint32_t block_dim_z;
 
     /*-- DMA 引擎状态 --*/
     GPGPUDMAState dma;              /* DMA 状态 */

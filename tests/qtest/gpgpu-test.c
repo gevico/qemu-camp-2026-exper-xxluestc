@@ -158,14 +158,15 @@ static void gpgpu_test_vram_size(void *obj, void *data, QGuestAllocator *alloc)
     uint32_t vram_lo, vram_hi;
     uint64_t vram_size;
 
-    qpci_device_enable(pdev);
-    bar0 = qpci_iomap(pdev, 0, NULL);
+    qpci_device_enable(pdev); //启用 PCI 设备（必须先调用才能访问 BAR）
+    bar0 = qpci_iomap(pdev, 0, NULL); //将 BAR0（控制寄存器）映射到虚拟地址
 
-    /* 读取 VRAM 大小 */
+    /* 读取 VRAM 大小 */   
     vram_lo = qpci_io_readl(pdev, bar0, GPGPU_REG_VRAM_SIZE_LO);
     vram_hi = qpci_io_readl(pdev, bar0, GPGPU_REG_VRAM_SIZE_HI);
-    vram_size = ((uint64_t)vram_hi << 32) | vram_lo;
-
+    vram_size = ((uint64_t)vram_hi << 32) | vram_lo; 
+    //PCI MMIO 寄存器每次读写是 32 位 (4 字节)，但 VRAM 大小是 64 位值，所以分两个寄存器来存储
+    
     g_assert_cmpuint(vram_size, ==, GPGPU_DEFAULT_VRAM_SIZE);
 
     qpci_iounmap(pdev, bar0);

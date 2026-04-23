@@ -52,6 +52,47 @@ static uint32_t block_id_to_linear(GPGPUState *s, uint32_t block_x, uint32_t blo
 
 /*
  * ============================================================================
+ * 浮点辅助函数
+ * ============================================================================
+ */
+
+/* 从浮点寄存器读取 float32 值 */
+static float32 fpr_read_f32(GPGPULane *lane, uint32_t reg)
+{
+    uint32_t val = lane->fpr[reg];
+    return make_float32(val);
+}
+
+/* 写入浮点寄存器 */
+static void fpr_write_f32(GPGPULane *lane, uint32_t reg, float32 val)
+{
+    if (reg != 0) {
+        lane->fpr[reg] = val;
+    }
+}
+
+/* 从通用寄存器读取 int32 */
+static int32_t gpr_read_i32(GPGPULane *lane, uint32_t reg)
+{
+    return (int32_t)lane->gpr[reg];
+}
+
+/* 获取当前 rounding mode 从 fcsr */
+static FloatRoundMode lane_get_float_rounding_mode(GPGPULane *lane)
+{
+    uint32_t frm = (lane->fcsr >> 5) & 0x7;
+    switch (frm) {
+    case 0: return float_round_nearest_even;  /* RNE */
+    case 1: return float_round_to_zero;        /* RTZ */
+    case 2: return float_round_down;           /* RDN */
+    case 3: return float_round_up;             /* RUP */
+    case 4: return float_round_ties_away;      /* RMM */
+    default: return float_round_nearest_even;
+    }
+}
+
+/*
+ * ============================================================================
  * RV32I 指令解码
  * ============================================================================
  */
@@ -72,6 +113,9 @@ static uint32_t block_id_to_linear(GPGPUState *s, uint32_t block_x, uint32_t blo
 /* R-type 操作码 */
 #define OPCODE_OP      0x33
 #define OPCODE_OP_32   0x3B
+
+/* RV32F 操作码 */
+#define OPCODE_OP_FP   0x53
 
 /* I-type 操作码 */
 #define OPCODE_JALR    0x67
@@ -320,6 +364,53 @@ static void exec_lane(GPGPUState *s, GPGPULane *lane, ExecResult *result)
                 break;
             case F3_AND:
                 if (rd != 0) lane->gpr[rd] = lane->gpr[rs1] & lane->gpr[rs2];
+                break;
+            }
+        }
+        break;
+
+    case OPCODE_OP_FP:
+        /* RV32F 浮点运算指令 - 测试14用到的4条指令 */
+        {
+            switch (funct7) {
+            case 0x00: /* FADD.S */
+                {
+                    float32 src1 = fpr_read_f32(lane, rs1);
+                    float32 src2 = fpr_read_f32(lane, rs2);
+                    float32 result_val = float32_add(src1, src2, &lane->fp_status);
+                    fpr_write_f32(lane, rd, result_val);
+                }
+                break;
+                
+            case 0x08: /* FMUL.S */
+                {
+                    float32 src1 = fpr_read_f32(lane, rs1);
+                    float32 src2 = fpr_read_f32(lane, rs2);
+                    float32 result_val = float32_mul(src1, src2, &lane->fp_status);
+                    fpr_write_f32(lane, rd, result_val);
+                }
+                break;
+                
+            case 0x68: /* FCVT.S.W - int32 to float32 */
+                {
+                    int32_t src = gpr_read_i32(lane, rs1);
+                    float32 result_val = int32_to_float32(src, &lane->fp_status);
+                    fpr_write_f32(lane, rd, result_val);
+                }
+                break;
+                
+            case 0x60: /* FCVT.W.S - float32 to int32 */
+                {
+                    FloatRoundMode rm = lane_get_float_rounding_mode(lane);
+                    lane->fp_status.float_rounding_mode = rm;
+                    float32 src = fpr_read_f32(lane, rs1);
+                    int64_t result_val = float32_to_int64(src, &lane->fp_status);
+                    if (rd != 0) lane->gpr[rd] = (uint32_t)result_val;
+                }
+                break;
+                
+            default:
+                /* 未实现的浮点指令 */
                 break;
             }
         }

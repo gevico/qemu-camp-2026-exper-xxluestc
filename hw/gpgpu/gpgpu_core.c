@@ -6,7 +6,7 @@
  * This work is licensed under the terms of the GNU GPL, version 2 or later.
  * See the COPYING file in the top-level directory.
  */
-
+//test main resp
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "gpgpu.h"
@@ -24,7 +24,7 @@ static uint32_t vram_readl(GPGPUState *s, uint32_t addr)
     if (addr + 4 > s->vram_size) {
         return 0;
     }
-    return *(uint32_t *)(s->vram_ptr + addr);
+    return *(uint32_t *)(s->vram_ptr + addr); 
 }
 
 /* 写 VRAM 32 位 */
